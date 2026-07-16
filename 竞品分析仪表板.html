@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>费森尤斯卡比 · 竞品分析仪表板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #213db3;
+    --primary-light: #8bb6d6;
+    --accent: #fbda68;
+    --accent-light: #fcfcfd;
+    --bg: #fcfcfd;
+    --card-bg: #ffffff;
+    --text: #161d22;
+    --text-secondary: #5a6275;
+    --border: #e2e8f0;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+    --radius: 12px;
+    --transition: .2s ease;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  
+  .header { background: linear-gradient(135deg, #213db3 0%, #161d22 100%); color: #fff; padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+  .header .subtitle { font-size: 13px; opacity: .75; margin-top: 2px; }
+  .header .date { font-size: 12px; opacity: .6; }
+  
+  .main-nav { display: flex; gap: 2px; background: #fff; padding: 0 32px; border-bottom: 1px solid var(--border); }
+  .main-nav button { padding: 14px 24px; border: none; background: none; font-size: 14px; font-weight: 600; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; transition: var(--transition); white-space: nowrap; }
+  .main-nav button:hover { color: var(--primary); }
+  .main-nav button.active { color: var(--primary); border-bottom-color: var(--primary); }
+  
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--card-bg); border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow); }
+  .stat-card .label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; color: var(--primary); }
+  .stat-card .value.accent { color: var(--accent); }
+  .stat-card .sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  
+  .section { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 24px; overflow: hidden; }
+  .section-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .section-header h2 { font-size: 16px; font-weight: 700; }
+  .section-header .badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .section-body { padding: 24px; }
+  
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .chart-box { position: relative; }
+  .chart-box h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); }
+  .chart-box canvas { max-height: 320px; }
+  
+  .full-width { grid-column: 1 / -1; }
+  
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #f8fafc; padding: 10px 12px; text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid var(--border); white-space: nowrap; font-size: 12px; }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  tbody tr:hover { background: #f8fafc; }
+  .highlight { background: #e8f4fd !important; font-weight: 600; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-fsmp { background: rgba(33,61,179,.12); color: #213db3; }
+  .tag-health { background: rgba(139,182,214,.18); color: #213db3; }
+  .tag-food { background: rgba(251,218,104,.22); color: #213db3; }
+  .tag-overseas { background: rgba(241,134,152,.14); color: #213db3; }
+  
+  .filter-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-bar input, .filter-bar select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: #fff; }
+  .filter-bar input { flex: 1; min-width: 200px; }
+  
+  .radar-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  
+  .competitor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+  .competitor-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: var(--transition); }
+  .competitor-card:hover { box-shadow: var(--shadow); border-color: var(--primary-light); }
+  .competitor-card h4 { font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .competitor-card .company { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+  .competitor-card .info-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f8fafc; }
+  .competitor-card .info-row .key { color: var(--text-secondary); }
+  .competitor-card .info-row .val { font-weight: 600; text-align: right; }
+  
+  .comparison-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 8px 0; background: #f1f5f9; }
+  .comparison-bar .fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+  .fill-primary { background: var(--primary); }
+  .fill-accent { background: var(--accent); }
+  .fill-warning { background: #f18698; }
+  
+  @media (max-width: 900px) {
+    .chart-row, .radar-row { grid-template-columns: 1fr; }
+    .competitor-grid { grid-template-columns: 1fr; }
+    .container { padding: 12px; }
+    .header { padding: 16px 20px; }
+    .main-nav { padding: 0 12px; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>费森尤斯卡比 · 竞品分析仪表板</h1>
+    <div class="subtitle">倍瑞益 / 费瑞卡 / 蛋百乐 — 竞品全景对比</div>
+  </div>
+  <div class="date" id="currentDate"></div>
+</div>
+
+<div class="main-nav" id="mainNav">
+  <button class="active" data-tab="overview">📊 总览</button>
+  <button data-tab="beiruiyi">🔵 倍瑞益竞品</button>
+  <button data-tab="feiruika">🟢 费瑞卡竞品</button>
+  <button data-tab="danbaile">🟠 蛋百乐竞品</button>
+  <button data-tab="protein">💊 蛋白粉全线对比</button>
+</div>
+
+<div class="container" id="content"></div>
+
+<script>
+// ========== DATA ==========
+const beiruiyiData = {
+  our: { name: '倍瑞益', protein: '浓缩乳清蛋白+酪蛋白', category: '特殊医学用途配方食品', target: '透析患者', company: '费森尤斯卡比' },
+  competitors: [
+    { name: '圣安能®', fullName: '圣安能低蛋白能量营养粉(低Gi)', category: '营养粉', company: '健帆生物', protein: '低蛋白（牛奶蛋白）', proteinPer100g: 4.5, energyPer100g: 2036, energyDensity: 4.87, price: 195, spec: '400g(20袋)', pricePerG: 0.49, target: '非透析阶段人群', proteinEnergyRatio: 0.92, phosEnergyRatio: 0, potassiumEnergyRatio: 0, sodiumEnergyRatio: 10.27, sugarEnergyRatio: 0, special: '/' },
+    { name: '怡肾康LP™', fullName: '怡肾康LP慢性肾病营养饮品', category: '营养饮品', company: '雅培（港版）', protein: '较低蛋白', proteinPer100g: 4.52, energyPer100g: '761.49 kJ/100 mL', energyDensity: 1.82, price: '228-355', spec: '220 mL/瓶×6', pricePerG: 1.33, target: '非透析慢性肾病患者', proteinEnergyRatio: 0, phosEnergyRatio: 35.71, potassiumEnergyRatio: 62.64, sodiumEnergyRatio: 43.96, sugarEnergyRatio: 0, special: '港版跨境' },
+    { name: '特益希®', fullName: '特益希®能量型固体饮料', category: '能量型固体饮料', company: '/', protein: '低蛋白质', proteinPer100g: 5, energyPer100g: 2925, energyDensity: 6.99, price: 624, spec: '560g(8瓶×70g)', pricePerG: 1.11, target: '糖尿病肾病', proteinEnergyRatio: 0.72, phosEnergyRatio: 0, potassiumEnergyRatio: 0, sodiumEnergyRatio: '/', sugarEnergyRatio: '/', special: 'B族维生素、水溶纤维素' },
+    { name: '欣代力®', fullName: '欣代力®营养配方粉', category: '特殊膳食用食品', company: '禾健生', protein: '乳清蛋白+大豆分离蛋白', proteinPer100g: 8, energyPer100g: 1819, energyDensity: 4.35, price: '/', spec: '480g(48g×10包/盒)', pricePerG: '/', target: '需要营养补充人群（低磷低钾低钠配方）', proteinEnergyRatio: 1.84, phosEnergyRatio: 14.95, potassiumEnergyRatio: '/', sodiumEnergyRatio: 24.84, sugarEnergyRatio: '/', special: '膳食纤维、高钙(200mg/100g)' },
+    { name: '君蓓乐泰™', fullName: '君蓓乐泰蛋白固体饮料', category: '固体饮料', company: '广东君悦营养医学有限公司', protein: '浓缩乳清蛋白', proteinPer100g: 12.8, energyPer100g: 1719, energyDensity: 4.11, price: '387-395', spec: '450g', pricePerG: 0.869, target: 'CKD 3-5期非透析患者', proteinEnergyRatio: 3.12, phosEnergyRatio: '/', potassiumEnergyRatio: '/', sodiumEnergyRatio: 7.3, sugarEnergyRatio: '/', special: 'MCT、左旋肉碱' },
+  ]
+};
+
+const feiruikaData = {
+  our: { name: '费瑞卡', category: '特殊医学用途配方食品', target: '透析患者能量补充', company: '费森尤斯卡比' },
+  competitors: [
+    { name: '特益析®（康臣）', fullName: '特益析®能量营养剂（香橙味果冻）', category: '果冻（能量营养剂）', company: '江苏仙之宝/广州康臣健康科技', protein: '0蛋白', proteinPer100g: 0, energyPer100g: 650, energyDensity: 1.55, price: 188, spec: '1080g(90g×12杯/盒)', pricePerG: 0.17, target: '需要能量补充人群(尤其肾病/透析患者)', proteinEnergyRatio: 0, phosEnergyRatio: '/', potassiumEnergyRatio: 59.86, sodiumEnergyRatio: 30.9, sugarEnergyRatio: '/', special: 'MCT、益生元、低磷低钾低钠、ω-3' },
+  ]
+};
+
+const danbaileData = {
+  our: { name: '蛋百乐', protein: '乳清蛋白', category: '普通食品（固体饮料）', target: '透析/老年/术后', company: '费森尤斯卡比' },
+  competitors: [
+    { name: '力优宜佳®', fullName: '力优宜佳®特殊医学用途蛋白质组件配方食品', category: '特医-脂肪组件', certification: 'FSMP', company: '无锡励成医学营养有限公司', protein: '乳清蛋白', proteinPer100g: 85, energyPer100g: 1533, energyDensity: 3.66, price: '288-338', spec: '260g', pricePerG: 1.21, target: '术后恢复/消化障碍', proteinEnergyRatio: 23.2, phosEnergyRatio: '/', potassiumEnergyRatio: '/', sodiumEnergyRatio: 35.48, special: '17种氨基酸' },
+    { name: '康乐透®', fullName: '康乐透®分离乳清蛋白粉固体饮料', category: '固体饮料', certification: '普通食品', company: '中恩（天津）医药科技有限公司', protein: '分离乳清蛋白', proteinPer100g: 85, energyPer100g: 1638, energyDensity: 3.91, price: 319, spec: '240g', pricePerG: 1.33, target: '透析肾友', proteinEnergyRatio: 21.71, phosEnergyRatio: 9.2, potassiumEnergyRatio: 8.17, sodiumEnergyRatio: 139.21, special: '复合维生素、钙铁锌' },
+    { name: '康比特®', fullName: '康比特酵母葡聚糖乳清蛋白粉', category: '保健食品', certification: '保健食品注册', company: '北京康比特体育科技', protein: '分离乳清蛋白+浓缩乳清蛋白', proteinPer100g: 70, energyPer100g: '/', energyDensity: '/', price: 369, spec: '400g', pricePerG: 0.92, target: '透析术后恢复/免疫力低下者', proteinEnergyRatio: '/', phosEnergyRatio: '/', potassiumEnergyRatio: '/', sodiumEnergyRatio: '/', special: '酵母β-葡聚糖' },
+    { name: '汤臣倍健®', fullName: '汤臣倍健尊耀蛋白粉', category: '保健食品', certification: '保健食品注册', company: '广东汤臣倍健', protein: '大豆分离蛋白+乳清蛋白', proteinPer100g: 82, energyPer100g: 1580, energyDensity: 3.78, price: 316, spec: '720g(两罐)', pricePerG: 0.44, target: '免疫力低下成人', proteinEnergyRatio: 21.71, phosEnergyRatio: '/', potassiumEnergyRatio: '/', sodiumEnergyRatio: '/', special: '18种氨基酸' },
+    { name: '威高®', fullName: '威高乳清蛋白粉固体饮料', category: '固体饮料', certification: '普通食品', company: '黑龙江鞍达实业集团', protein: '分离乳清蛋白', proteinPer100g: 86, energyPer100g: 1586, energyDensity: 3.79, price: 156, spec: '200g(10g×20袋)', pricePerG: 0.78, target: '透析肾友/低磷低钾', proteinEnergyRatio: 22.69, phosEnergyRatio: 6.33, potassiumEnergyRatio: 5.54, sodiumEnergyRatio: 152.75, special: '低磷低钾' },
+    { name: '冬泽定®', fullName: '冬泽定®特殊医学用途蛋白质组件配方食品', category: '特医-蛋白质组件', certification: 'FSMP', company: '江苏冬泽特医食品有限公司', protein: '水解乳清蛋白+大豆肽', proteinPer100g: 80, energyPer100g: 1380.72, energyDensity: 3.3, price: '/', spec: '180g(15g×12袋)', pricePerG: '/', target: '10岁以上需补充蛋白质人群', proteinEnergyRatio: 24.24, phosEnergyRatio: '/', potassiumEnergyRatio: '/', sodiumEnergyRatio: '/', special: '高支链氨基酸、AAS评分110' },
+    { name: '伊能佳®', fullName: '伊能佳®特殊医学用途蛋白质组件配方食品', category: '特医-蛋白质组件', certification: 'FSMP', company: '浙江海正甦力康生物科技', protein: '乳清蛋白/大豆分离蛋白', proteinPer100g: 77.3, energyPer100g: 1578, energyDensity: 3.77, price: 188, spec: '240g(20g×12)', pricePerG: 0.78, target: '10岁以上需补充蛋白质人群', proteinEnergyRatio: 20.5, phosEnergyRatio: 124.88, potassiumEnergyRatio: 7.95, sodiumEnergyRatio: 68.41, special: '乳糖2.2~6.8g/100g' },
+  ]
+};
+
+const allProteinProducts = [
+  { brand: '伊能佳', cert: 'FSMP', product: '伊能佳®特殊医学用途蛋白质组件配方食品', target: '10岁以上需补充蛋白质人群', spec: '280g/罐', price: 498, purity: 77.3, pricePerGProtein: 2.30 },
+  { brand: '普柔汀', cert: 'FSMP', product: '普柔汀®特殊医学用途蛋白质组件配方食品', target: '10岁以上需补充蛋白质人群', spec: '144g/盒(12g×12袋)', price: 698, purity: 87, pricePerGProtein: 5.57 },
+  { brand: '浦索', cert: 'FSMP', product: '浦索®特殊医学用途蛋白质组件配方粉', target: '10岁以上需补充蛋白质人群', spec: '225g/盒(7.5g×30袋)', price: 399, purity: 87, pricePerGProtein: 2.04 },
+  { brand: '冬泽定', cert: 'FSMP', product: '冬泽定®特殊医学用途蛋白质组件配方食品', target: '10岁以上需补充蛋白质人群', spec: '180g/盒(15g×12袋)', price: 498, purity: 80, pricePerGProtein: 3.46 },
+  { brand: '舒畅', cert: 'FSMP', product: '舒畅®特殊医学用途蛋白质组件配方食品', target: '透析患者', spec: '192g/盒(12g×16袋)', price: 458, purity: 86, pricePerGProtein: 2.77 },
+  { brand: '康比特', cert: '保健食品', product: '康比特牌酵母葡聚糖乳清蛋白粉', target: '免疫力低下人群', spec: '400g/罐', price: 229, purity: 56, pricePerGProtein: 1.02 },
+  { brand: '汤臣倍健', cert: '保健食品', product: '汤臣倍健蛋白粉', target: '免疫力低下人群', spec: '450g+150g/罐', price: 421, purity: 80, pricePerGProtein: 0.88 },
+  { brand: '纽崔莱', cert: '保健食品', product: '安利纽崔莱多种植物蛋白粉', target: '免疫力低下者/易疲劳者', spec: '770g/瓶', price: 560, purity: 80, pricePerGProtein: 0.91 },
+  { brand: '谱元泰', cert: '保健食品', product: '谱元泰乳清蛋白粉', target: '成人/中老年人', spec: '500g/罐', price: 618, purity: 90, pricePerGProtein: 1.37 },
+  { brand: '康比特(酸奶)', cert: '普通食品', product: '康比特酸奶乳清CPTpro®', target: '需补充蛋白质人群', spec: '300g/瓶', price: 98, purity: 75, pricePerGProtein: 0.44 },
+  { brand: 'Swisse', cert: '固体饮料', product: 'Swisse乳清蛋白粉（香草味）', target: '需补充蛋白质人群', spec: '450g/罐', price: 269, purity: 75.3, pricePerGProtein: 0.79 },
+  { brand: 'MYPROTEIN', cert: '跨境', product: 'MYPROTEIN IMPACT乳清蛋白粉', target: '健身人士', spec: '2.5kg/袋', price: 520, purity: 82, pricePerGProtein: 0.25 },
+  { brand: '考尔夫', cert: '普通食品', product: '考尔夫透析蛋白粉', target: '需补充蛋白质人群', spec: '500g/罐(20g×25袋)', price: 238, purity: 20.5, pricePerGProtein: 2.32 },
+  { brand: '乐析能', cert: '普通食品', product: '乐析能透析蛋白粉', target: '透友人群/术后恢复', spec: '240g/盒(20g×12袋)', price: 258, purity: 22.3, pricePerGProtein: 4.82 },
+  { brand: '纽特舒玛', cert: '普通食品', product: '纽特舒玛分离乳清蛋白粉', target: '术后/化疗/肠胃脆弱', spec: '464g/罐', price: 598, purity: 86.2, pricePerGProtein: 1.50 },
+  { brand: '圣安多', cert: '普通食品', product: '圣安多蛋白质固体饮料', target: '肾病透析专用', spec: '180g/盒', price: 258, purity: 80, pricePerGProtein: 1.79 },
+  { brand: '威高', cert: '普通食品', product: '威高分离乳清蛋白粉', target: '透析/围手术期', spec: '200g/盒', price: 156, purity: 86, pricePerGProtein: 0.91 },
+  { brand: '析安能', cert: '普通食品', product: '析安能乳清蛋白粉固体饮料', target: '肾友透析', spec: '500g/罐(20g×25袋)', price: 268, purity: 21, pricePerGProtein: 2.55 },
+  { brand: '领透析尔舒', cert: '普通食品', product: '领透析尔舒乳清蛋白粉固体饮料', target: '肾友透析', spec: '300g/盒(10g×30袋)', price: 319, purity: 80, pricePerGProtein: 1.33 },
+  { brand: '蛋百乐', cert: '普通食品', product: '蛋百乐乳清蛋白粉固体饮料', target: '透析/老年/术后', spec: '440g/听(11g×40次)', price: 528, purity: 92, pricePerGProtein: 1.30, isOurs: true },
+  { brand: '蛋百乐(盒装)', cert: '普通食品', product: '蛋百乐乳清蛋白粉固体饮料（盒装）', target: '透析/老年/健身/女性', spec: '330g/盒(11g×30袋)', price: 428, purity: 92, pricePerGProtein: 1.41, isOurs: true },
+];
+
+// ========== UTILS ==========
+function parseNum(v) {
+  if (v === '/' || v === '' || v === undefined || v === null) return NaN;
+  const s = String(v).replace(/[^\d.-]/g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+
+function formatNum(v) {
+  if (v === '/' || v === '' || v === undefined || v === null) return '/';
+  const n = parseNum(v);
+  return isNaN(n) ? String(v) : n.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+}
+
+function getCertTag(cert) {
+  if (!cert) return '';
+  if (cert.includes('FSMP') || cert.includes('特医') || cert.includes('获批')) return '<span class="tag tag-fsmp">FSMP</span>';
+  if (cert.includes('保健')) return '<span class="tag tag-health">保健食品</span>';
+  if (cert.includes('普通')) return '<span class="tag tag-food">普通食品</span>';
+  if (cert.includes('跨境')) return '<span class="tag tag-overseas">跨境</span>';
+  if (cert.includes('固体饮料')) return '<span class="tag tag-food">固体饮料</span>';
+  return '<span class="tag tag-food">' + cert + '</span>';
+}
+
+// ========== CHARTS ==========
+let charts = {};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+function createBarChart(canvasId, labels, values, color, label, yLabel) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  const c = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: values,
+        backgroundColor: values.map((v, i) => {
+          const alpha = 0.6 + (i / values.length) * 0.3;
+          return color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+        }),
+        borderColor: color,
+        borderWidth: 1,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: yLabel || '', font: { size: 12 } }, grid: { color: '#f1f5f9' } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+  return c;
+}
+
+function createHorizontalBar(canvasId, labels, values, color, label) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  const c = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: values,
+        backgroundColor: color,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: '#f1f5f9' }, title: { display: true, text: label, font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+  return c;
+}
+
+function createRadarChart(canvasId, labels, datasets) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  const c = new Chart(ctx, {
+    type: 'radar',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { r: { beginAtZero: true, ticks: { font: { size: 9 }, backdropColor: 'transparent' }, pointLabels: { font: { size: 10 } } } },
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 16 } } }
+    }
+  });
+  return c;
+}
+
+// ========== RENDER ==========
+function renderOverview() {
+  return `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">竞品总数</div>
+        <div class="value accent">${beiruiyiData.competitors.length + feiruikaData.competitors.length + danbaileData.competitors.length + allProteinProducts.length}</div>
+        <div class="sub">覆盖 3 大产品线 + 蛋白粉市场</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">倍瑞益直接竞品</div>
+        <div class="value">${beiruiyiData.competitors.length}</div>
+        <div class="sub">低蛋白能量营养产品</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">费瑞卡直接竞品</div>
+        <div class="value">${feiruikaData.competitors.length}</div>
+        <div class="sub">能量补充类产品</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">蛋百乐直接竞品</div>
+        <div class="value">${danbaileData.competitors.length}</div>
+        <div class="sub">蛋白补充类产品</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">蛋白粉市场品牌</div>
+        <div class="value accent">${allProteinProducts.length}</div>
+        <div class="sub">FSMP + 保健食品 + 普通食品</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>三大产品线竞品全景</h2><span class="badge">点击标签页查看详情</span></div>
+      <div class="section-body">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+          <div>
+            <h3 style="font-size:14px;font-weight:700;color:#8bb6d6;margin-bottom:12px;">🔵 倍瑞益 — 低蛋白能量营养</h3>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">竞品：${beiruiyiData.competitors.map(c=>c.name).join('、')}</p>
+            <p style="font-size:12px;color:var(--text-secondary);">定位：非透析 CKD 患者低蛋白饮食管理，提供充足能量同时限制蛋白质摄入。</p>
+          </div>
+          <div>
+            <h3 style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:12px;">🟢 费瑞卡 — 透析能量补充</h3>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">竞品：${feiruikaData.competitors.map(c=>c.name).join('、')}</p>
+            <p style="font-size:12px;color:var(--text-secondary);">定位：透析患者能量补充，果冻/液态剂型方便服用，主打能量密度与便捷。</p>
+          </div>
+          <div>
+            <h3 style="font-size:14px;font-weight:700;color:#fbda68;margin-bottom:12px;">🟠 蛋百乐 — 蛋白补充</h3>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">竞品：${danbaileData.competitors.map(c=>c.name).join('、')} + 蛋白粉全线${allProteinProducts.length}款</p>
+            <p style="font-size:12px;color:var(--text-secondary);">定位：透析/术后/老年蛋白补充，高纯度（92%）乳清蛋白，低磷低钾。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>蛋白粉市场格局概览</h2></div>
+      <div class="section-body">
+        <div class="chart-row">
+          <div class="chart-box"><h3>蛋白纯度 vs 每克蛋白价格</h3><canvas id="overviewScatter" style="height:320px;"></canvas></div>
+          <div class="chart-box"><h3>各品类产品数量分布</h3><canvas id="overviewPie" style="height:320px;"></canvas></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBeiruiyi() {
+  const comps = [...beiruiyiData.competitors].sort((a, b) => parseNum(b.energyPer100g) - parseNum(a.energyPer100g));
+  const allNames = ['倍瑞益', ...comps.map(c => c.name)];
+  return `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">直接竞品数</div><div class="value accent">${comps.length}</div><div class="sub">低蛋白能量营养产品</div></div>
+      <div class="stat-card"><div class="label">价格区间</div><div class="value">¥${comps.map(c=>parseNum(c.price)).filter(v=>!isNaN(v)).sort((a,b)=>a-b)[0] || 195}-${comps.map(c=>parseNum(c.price)).filter(v=>!isNaN(v)).sort((a,b)=>b-a)[0] || 624}</div><div class="sub">每最小销售单元</div></div>
+      <div class="stat-card"><div class="label">蛋白含量范围</div><div class="value">${Math.min(...comps.map(c=>parseNum(c.proteinPer100g)).filter(v=>!isNaN(v)))}-${Math.max(...comps.map(c=>parseNum(c.proteinPer100g)).filter(v=>!isNaN(v)))}g/100g</div><div class="sub">低蛋白配方为主</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>竞品对比表格</h2></div>
+      <div class="section-body" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>品牌</th><th>产品名称</th><th>类别</th><th>企业</th><th>蛋白来源</th><th>蛋白g/100g</th><th>热量kJ/100g</th><th>能量密度</th><th>零售价(元)</th><th>价格/克</th><th>目标人群</th><th>特色</th></tr></thead>
+          <tbody>
+            <tr class="highlight"><td><strong>⭐ 倍瑞益</strong></td><td>倍瑞益</td><td>特医食品</td><td>费森尤斯卡比</td><td>浓缩乳清蛋白+酪蛋白</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>透析患者</td><td>自有产品</td></tr>
+            ${comps.map(c => `<tr>
+              <td><strong>${c.name}</strong></td><td>${c.fullName}</td><td>${c.category}</td><td>${c.company}</td><td>${c.protein}</td>
+              <td>${formatNum(c.proteinPer100g)}</td><td>${formatNum(c.energyPer100g)}</td><td>${formatNum(c.energyDensity)}</td>
+              <td>${c.price}</td><td>${formatNum(c.pricePerG)}</td><td>${c.target}</td><td>${c.special}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>核心维度对比</h2></div>
+      <div class="section-body">
+        <div class="chart-row">
+          <div class="chart-box"><h3>蛋白含量对比 (g/100g)</h3><canvas id="brProtein" style="height:300px;"></canvas></div>
+          <div class="chart-box"><h3>能量密度对比 (kcal/g)</h3><canvas id="brEnergy" style="height:300px;"></canvas></div>
+        </div>
+        <div class="chart-row" style="margin-top:24px;">
+          <div class="chart-box"><h3>钠/能量比 (mg/100kcal)</h3><canvas id="brSodium" style="height:300px;"></canvas></div>
+          <div class="chart-box"><h3>蛋白/能量比 (g/100kcal)</h3><canvas id="brPERatio" style="height:300px;"></canvas></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderFeiruika() {
+  const comps = feiruikaData.competitors;
+  return `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">直接竞品数</div><div class="value accent">${comps.length}</div><div class="sub">能量补充类产品</div></div>
+      <div class="stat-card"><div class="label">竞品价格</div><div class="value">¥${comps[0].price}/盒</div><div class="sub">${comps[0].spec}</div></div>
+      <div class="stat-card"><div class="label">价格/克</div><div class="value">¥${comps[0].pricePerG}/g</div><div class="sub">低成本能量补充方案</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>竞品对比表格</h2></div>
+      <div class="section-body" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>品牌</th><th>产品名称</th><th>类别</th><th>企业</th><th>蛋白</th><th>热量kJ/100g</th><th>能量密度</th><th>零售价</th><th>价格/克</th><th>钾/能量比</th><th>钠/能量比</th><th>目标人群</th><th>特色</th></tr></thead>
+          <tbody>
+            <tr class="highlight"><td><strong>⭐ 费瑞卡</strong></td><td>费瑞卡</td><td>特医食品</td><td>费森尤斯卡比</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>透析患者能量补充</td><td>自有产品</td></tr>
+            ${comps.map(c => `<tr>
+              <td><strong>${c.name}</strong></td><td>${c.fullName}</td><td>${c.category}</td><td>${c.company}</td>
+              <td>${c.protein}</td><td>${formatNum(c.energyPer100g)}</td><td>${formatNum(c.energyDensity)}</td>
+              <td>¥${c.price}/盒</td><td>${formatNum(c.pricePerG)}</td><td>${formatNum(c.potassiumEnergyRatio)}</td><td>${formatNum(c.sodiumEnergyRatio)}</td>
+              <td>${c.target}</td><td>${c.special}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>核心维度对比</h2></div>
+      <div class="section-body">
+        <div class="chart-row">
+          <div class="chart-box"><h3>能量密度 (kcal/g)</h3><canvas id="frEnergy" style="height:300px;"></canvas></div>
+          <div class="chart-box"><h3>价格/克 对比</h3><canvas id="frPrice" style="height:300px;"></canvas></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDanbaile() {
+  const comps = [...danbaileData.competitors].sort((a, b) => parseNum(b.proteinPer100g) - parseNum(a.proteinPer100g));
+  const sortedPrices = comps.map(c => parseNum(c.price)).filter(v => !isNaN(v)).sort((a, b) => a - b);
+  const bestPriceProtein = [...comps].sort((a, b) => parseNum(a.pricePerG) - parseNum(b.pricePerG))[0];
+
+  return `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">直接竞品数</div><div class="value accent">${comps.length}</div><div class="sub">蛋白补充类产品</div></div>
+      <div class="stat-card"><div class="label">蛋白纯度最高</div><div class="value">92%</div><div class="sub">蛋百乐（自有）</div></div>
+      <div class="stat-card"><div class="label">价格区间</div><div class="value">¥${sortedPrices[0] || 156}-¥${sortedPrices[sortedPrices.length - 1] || 369}</div><div class="sub">每最小销售单元</div></div>
+      <div class="stat-card"><div class="label">每克蛋白价格最优</div><div class="value">${bestPriceProtein ? bestPriceProtein.name + ' ¥' + formatNum(bestPriceProtein.pricePerG) : '汤臣倍健 ¥0.44'}</div><div class="sub">但非透析专用</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>竞品对比表格</h2></div>
+      <div class="section-body" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>品牌</th><th>产品名称</th><th>类别</th><th>资质</th><th>企业</th><th>蛋白来源</th><th>蛋白纯度%</th><th>热量kJ/100g</th><th>能量密度</th><th>零售价(元)</th><th>价格/克</th><th>蛋白/能量比</th><th>磷/能量比</th><th>钾/能量比</th><th>钠/能量比</th><th>目标人群</th><th>特色</th></tr></thead>
+          <tbody>
+            <tr class="highlight"><td><strong>⭐ 蛋百乐</strong></td><td>蛋百乐乳清蛋白粉固体饮料</td><td>固体饮料</td><td>普通食品</td><td>费森尤斯卡比</td><td>乳清蛋白</td><td><strong>92</strong></td><td>-</td><td>3.79</td><td>528</td><td>1.20</td><td>-</td><td>-</td><td>-</td><td>-</td><td>透析/老年/术后</td><td>蛋白纯度领先市场</td></tr>
+            ${comps.map(c => `<tr>
+              <td><strong>${c.name}</strong></td><td>${c.fullName}</td><td>${c.category}</td><td>${c.certification || '/'}</td><td>${c.company}</td><td>${c.protein}</td>
+              <td><strong>${formatNum(c.proteinPer100g)}</strong></td><td>${formatNum(c.energyPer100g)}</td><td>${formatNum(c.energyDensity)}</td>
+              <td>${c.price}</td><td>${formatNum(c.pricePerG)}</td><td>${formatNum(c.proteinEnergyRatio)}</td>
+              <td>${formatNum(c.phosEnergyRatio)}</td><td>${formatNum(c.potassiumEnergyRatio)}</td><td>${formatNum(c.sodiumEnergyRatio)}</td>
+              <td>${c.target}</td><td>${c.special}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>核心维度图表</h2></div>
+      <div class="section-body">
+        <div class="chart-row">
+          <div class="chart-box"><h3>蛋白纯度对比 (%)</h3><canvas id="dbPurity" style="height:300px;"></canvas></div>
+          <div class="chart-box"><h3>每克蛋白价格对比 (元)</h3><canvas id="dbPriceProtein" style="height:300px;"></canvas></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderProteinFull() {
+  const fsmpProducts = allProteinProducts.filter(p => p.cert === 'FSMP');
+  const healthProducts = allProteinProducts.filter(p => p.cert === '保健食品');
+  const foodProducts = allProteinProducts.filter(p => p.cert === '普通食品' || p.cert === '固体饮料' || p.cert === '跨境');
+
+  return `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">FSMP 产品</div><div class="value accent">${fsmpProducts.length}</div><div class="sub">特医蛋白组件</div></div>
+      <div class="stat-card"><div class="label">保健食品</div><div class="value">${healthProducts.length}</div><div class="sub">注册保健食品</div></div>
+      <div class="stat-card"><div class="label">普通食品</div><div class="value">${foodProducts.length}</div><div class="sub">含固体饮料/跨境</div></div>
+      <div class="stat-card"><div class="label">蛋百乐蛋白纯度排名</div><div class="value accent">#1</div><div class="sub">92% 纯度领先全市场</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>全部蛋白粉产品对比</h2><span class="badge" id="tableCount">${allProteinProducts.length} 款产品</span></div>
+      <div class="section-body">
+        <div class="filter-bar">
+          <input type="text" id="proteinSearch" placeholder="🔍 搜索品牌/产品..." oninput="filterProteinTable()">
+          <select id="proteinCertFilter" onchange="filterProteinTable()">
+            <option value="all">全部品类</option>
+            <option value="FSMP">FSMP 特医</option>
+            <option value="保健食品">保健食品</option>
+            <option value="普通食品">普通食品</option>
+            <option value="固体饮料">固体饮料</option>
+            <option value="跨境">跨境</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="proteinTable">
+            <thead><tr>
+              <th onclick="sortProteinTable('brand')" style="cursor:pointer;">品牌 ↕</th>
+              <th>品类</th><th>产品名称</th><th>目标人群</th><th>规格</th>
+              <th onclick="sortProteinTable('price')" style="cursor:pointer;">零售价(元) ↕</th>
+              <th onclick="sortProteinTable('purity')" style="cursor:pointer;">蛋白纯度(%) ↕</th>
+              <th onclick="sortProteinTable('pricePerGProtein')" style="cursor:pointer;">每g蛋白价格 ↕</th>
+            </tr></thead>
+            <tbody id="proteinTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>蛋白粉市场全景图</h2></div>
+      <div class="section-body">
+        <div class="chart-row">
+          <div class="chart-box"><h3>品牌·蛋白纯度 vs 每克蛋白价格（气泡图）</h3><canvas id="proteinBubble" style="height:340px;"></canvas></div>
+          <div class="chart-box"><h3>各品类每克蛋白均价对比</h3><canvas id="proteinAvgPrice" style="height:340px;"></canvas></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ========== TAB LOGIC ==========
+let currentTab = 'overview';
+
+function switchTab(tab) {
+  currentTab = tab;
+  destroyCharts();
+  document.querySelectorAll('.main-nav button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  const content = document.getElementById('content');
+
+  if (tab === 'overview') {
+    content.innerHTML = renderOverview();
+    setTimeout(() => {
+      const scatterCtx = document.getElementById('overviewScatter');
+      if (scatterCtx) {
+        // Scatter: purity vs pricePerGProtein
+        const data = allProteinProducts.filter(p => p.purity > 0 && p.pricePerGProtein > 0);
+        const colors = data.map(p => p.isOurs ? 'rgb(251,218,104)' : p.cert === 'FSMP' ? 'rgb(33,61,179)' : p.cert === '保健食品' ? 'rgb(139,182,214)' : 'rgb(241,134,152)');
+        charts.overviewScatter = new Chart(scatterCtx, {
+          type: 'scatter',
+          data: {
+            datasets: [{
+              label: '蛋白粉产品',
+              data: data.map(p => ({ x: p.purity, y: p.pricePerGProtein })),
+              backgroundColor: colors,
+              borderColor: colors,
+              pointRadius: data.map(p => p.isOurs ? 10 : 6),
+              pointHoverRadius: 10,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              tooltip: { callbacks: { label: ctx => `${data[ctx.dataIndex].brand}: 纯度${ctx.raw.x}%, ¥${ctx.raw.y.toFixed(2)}/g蛋白` } },
+              legend: { display: false }
+            },
+            scales: {
+              x: { title: { display: true, text: '蛋白纯度 (%)', font: { size: 12 } }, grid: { color: '#f1f5f9' } },
+              y: { title: { display: true, text: '每克蛋白价格 (元)', font: { size: 12 } }, grid: { color: '#f1f5f9' } }
+            }
+          }
+        });
+        // Annotations for key products
+        const plugin = {
+          id: 'labels',
+          afterDraw(chart) {
+            const ctx2 = chart.ctx;
+            data.forEach((p, i) => {
+              if (p.isOurs || p.brand === 'MYPROTEIN' || p.brand === '普柔汀' || p.brand === '康比特(酸奶)') {
+                const meta = chart.getDatasetMeta(0);
+                const pt = meta.data[i];
+                ctx2.fillStyle = '#161d22';
+                ctx2.font = 'bold 11px sans-serif';
+                ctx2.textAlign = 'center';
+                ctx2.fillText(p.brand, pt.x, pt.y - 10);
+              }
+            });
+          }
+        };
+        charts.overviewScatter.config.plugins = [plugin];
+        charts.overviewScatter.update();
+      }
+      
+      const pieCtx = document.getElementById('overviewPie');
+      if (pieCtx) {
+        charts.overviewPie = new Chart(pieCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['FSMP 特医', '保健食品', '普通食品/固体饮料', '跨境'],
+            datasets: [{
+              data: [5, 4, 9, 1],
+              backgroundColor: ['#213db3', '#8bb6d6', '#fbda68', '#f18698'],
+              borderWidth: 2,
+              borderColor: '#fff',
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } } }
+          }
+        });
+      }
+    }, 100);
+  } else if (tab === 'beiruiyi') {
+    content.innerHTML = renderBeiruiyi();
+    setTimeout(() => {
+      const comps = beiruiyiData.competitors;
+      const allNames = ['倍瑞益', ...comps.map(c => c.name)];
+      charts.brProtein = createBarChart('brProtein', comps.map(c=>c.name), comps.map(c=>parseNum(c.proteinPer100g)), 'rgb(33,61,179)', '蛋白含量 g/100g', 'g/100g');
+      charts.brEnergy = createBarChart('brEnergy', comps.map(c=>c.name), comps.map(c=>parseNum(c.energyDensity)), 'rgb(251,218,104)', '能量密度 kcal/g', 'kcal/g');
+      charts.brSodium = createBarChart('brSodium', comps.map(c=>c.name), comps.map(c=>parseNum(c.sodiumEnergyRatio)), 'rgb(241,134,152)', '钠/能量 mg/100kcal', 'mg/100kcal');
+      charts.brPERatio = createBarChart('brPERatio', comps.map(c=>c.name), comps.map(c=>parseNum(c.proteinEnergyRatio)), 'rgb(139,182,214)', '蛋白/能量 g/100kcal', 'g/100kcal');
+    }, 100);
+  } else if (tab === 'feiruika') {
+    content.innerHTML = renderFeiruika();
+    setTimeout(() => {
+      const comps = feiruikaData.competitors;
+      charts.frEnergy = createBarChart('frEnergy', comps.map(c=>c.name), comps.map(c=>parseNum(c.energyDensity)), 'rgb(251,218,104)', '能量密度 kcal/g', 'kcal/g');
+      charts.frPrice = createBarChart('frPrice', comps.map(c=>c.name), comps.map(c=>parseNum(c.pricePerG)), 'rgb(241,134,152)', '价格/克 元/g', '元/g');
+    }, 100);
+  } else if (tab === 'danbaile') {
+    content.innerHTML = renderDanbaile();
+    setTimeout(() => {
+      const comps = [...danbaileData.competitors].sort((a, b) => parseNum(b.proteinPer100g) - parseNum(a.proteinPer100g));
+      charts.dbPurity = createBarChart('dbPurity', ['蛋百乐', ...comps.map(c=>c.name)], [92, ...comps.map(c=>parseNum(c.proteinPer100g))], 'rgb(251,218,104)', '蛋白纯度 %', '%');
+      const priceData = [1.30, ...comps.map(c=>parseNum(c.pricePerG))].map(v => isNaN(v) ? 0 : v);
+      charts.dbPriceProtein = createHorizontalBar('dbPriceProtein', ['蛋百乐', ...comps.map(c=>c.name)], priceData, 'rgb(241,134,152)', '元/g蛋白');
+    }, 100);
+  } else if (tab === 'protein') {
+    content.innerHTML = renderProteinFull();
+    setTimeout(() => {
+      const sorted = [...allProteinProducts].sort((a, b) => b.purity - a.purity);
+      renderProteinTable(sorted);
+      // Protein market charts
+      const validProducts = allProteinProducts.filter(p => p.purity > 0 && p.pricePerGProtein > 0 && p.pricePerGProtein < 6);
+      
+      const bubbleCtx = document.getElementById('proteinBubble');
+      if (bubbleCtx) {
+        charts.proteinBubble = new Chart(bubbleCtx, {
+          type: 'bubble',
+          data: {
+            datasets: [{
+              label: 'FSMP',
+              data: validProducts.filter(p => p.cert === 'FSMP').map(p => ({ x: p.purity, y: p.pricePerGProtein, r: Math.max(p.price / 40, 5) })),
+              backgroundColor: 'rgba(33,61,179,0.6)',
+            }, {
+              label: '保健食品',
+              data: validProducts.filter(p => p.cert === '保健食品').map(p => ({ x: p.purity, y: p.pricePerGProtein, r: Math.max(p.price / 40, 5) })),
+              backgroundColor: 'rgba(139,182,214,0.6)',
+            }, {
+              label: '普通食品',
+              data: validProducts.filter(p => p.cert !== 'FSMP' && p.cert !== '保健食品').map(p => ({ x: p.purity, y: p.pricePerGProtein, r: Math.max(p.price / 40, 5) })),
+              backgroundColor: 'rgba(251,218,104,0.6)',
+            }, {
+              label: '蛋百乐',
+              data: validProducts.filter(p => p.isOurs).map(p => ({ x: p.purity, y: p.pricePerGProtein, r: 14 })),
+              backgroundColor: 'rgba(251,218,104,0.9)',
+              borderColor: '#8bb6d6',
+              borderWidth: 2,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 16 } } },
+            scales: {
+              x: { title: { display: true, text: '蛋白纯度 (%)', font: { size: 12 } }, grid: { color: '#f1f5f9' } },
+              y: { title: { display: true, text: '每克蛋白价格 (元)', font: { size: 12 } }, grid: { color: '#f1f5f9' } }
+            }
+          }
+        });
+      }
+
+      const avgCtx = document.getElementById('proteinAvgPrice');
+      if (avgCtx) {
+        const fsmpAvg = validProducts.filter(p => p.cert === 'FSMP').reduce((s,p)=>s+p.pricePerGProtein,0) / Math.max(validProducts.filter(p => p.cert === 'FSMP').length, 1);
+        const healthAvg = validProducts.filter(p => p.cert === '保健食品').reduce((s,p)=>s+p.pricePerGProtein,0) / Math.max(validProducts.filter(p => p.cert === '保健食品').length, 1);
+        const foodAvg = validProducts.filter(p => p.cert !== 'FSMP' && p.cert !== '保健食品').reduce((s,p)=>s+p.pricePerGProtein,0) / Math.max(validProducts.filter(p => p.cert !== 'FSMP' && p.cert !== '保健食品').length, 1);
+        const ourPrice = 1.30;
+        charts.proteinAvgPrice = new Chart(avgCtx, {
+          type: 'bar',
+          data: {
+            labels: ['FSMP 特医', '保健食品', '普通食品/固体饮料', '蛋百乐（自有）'],
+            datasets: [{
+              label: '每克蛋白均价 (元)',
+              data: [fsmpAvg, healthAvg, foodAvg, ourPrice],
+              backgroundColor: ['#213db3', '#8bb6d6', '#fbda68', '#f18698'],
+              borderRadius: 8,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: '元/g蛋白', font: { size: 12 } }, grid: { color: '#f1f5f9' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+      }
+    }, 100);
+  }
+}
+
+// ========== PROTEIN TABLE ==========
+let proteinSortField = 'purity';
+let proteinSortAsc = false;
+
+function sortProteinTable(field) {
+  if (proteinSortField === field) proteinSortAsc = !proteinSortAsc;
+  else { proteinSortField = field; proteinSortAsc = false; }
+  const filtered = getFilteredProducts();
+  filtered.sort((a, b) => {
+    let va = a[field], vb = b[field];
+    if (typeof va === 'string') va = parseFloat(va);
+    if (typeof vb === 'string') vb = parseFloat(vb);
+    if (isNaN(va)) va = 0; if (isNaN(vb)) vb = 0;
+    return proteinSortAsc ? va - vb : vb - va;
+  });
+  renderProteinTable(filtered);
+}
+
+function getFilteredProducts() {
+  const search = (document.getElementById('proteinSearch')?.value || '').toLowerCase();
+  const cert = document.getElementById('proteinCertFilter')?.value || 'all';
+  return allProteinProducts.filter(p => {
+    const matchSearch = !search || p.brand.toLowerCase().includes(search) || p.product.toLowerCase().includes(search) || p.target.toLowerCase().includes(search);
+    const matchCert = cert === 'all' || p.cert === cert;
+    return matchSearch && matchCert;
+  }).sort((a, b) => b.purity - a.purity);
+}
+
+function filterProteinTable() {
+  renderProteinTable(getFilteredProducts());
+}
+
+function renderProteinTable(products) {
+  const tbody = document.getElementById('proteinTableBody');
+  if (!tbody) return;
+  document.getElementById('tableCount').textContent = products.length + ' 款产品';
+  tbody.innerHTML = products.map(p => `
+    <tr class="${p.isOurs ? 'highlight' : ''}">
+      <td><strong>${p.isOurs ? '⭐ ' : ''}${p.brand}</strong></td>
+      <td>${getCertTag(p.cert)}</td>
+      <td>${p.product}</td>
+      <td>${p.target}</td>
+      <td>${p.spec}</td>
+      <td>¥${p.price}</td>
+      <td><strong>${p.purity}%</strong></td>
+      <td>¥${p.pricePerGProtein.toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
+
+// ========== INIT ==========
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' });
+
+document.querySelectorAll('.main-nav button').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+switchTab('overview');
+</script>
+
+</body>
+</html>
